@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bach-rsvp-v1';
+const CACHE_NAME = 'bach-rsvp-v2';
 const CACHE_URLS = ['./', './index.html', './manifest.json', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', event => {
@@ -18,7 +18,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, { cache: 'no-cache' }) // skip Pages' 10-min HTTP cache
       .then(res => {
         if (res.ok && new URL(event.request.url).origin === self.location.origin) {
           const copy = res.clone();

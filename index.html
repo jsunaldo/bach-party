@@ -159,14 +159,16 @@ function save() {
 
 function clean(p) {
   if (!p || typeof p.name !== 'string' || !p.name.trim()) return null;
+  const so = typeof p.so === 'string' ? p.so.trim() : '';
   return {
     id: String(p.id || uid()),
     name: p.name.trim(),
     phone: typeof p.phone === 'string' ? p.phone.trim() : '',
-    so: typeof p.so === 'string' ? p.so.trim() : '',
+    so,
     texted: !!p.texted,
     status: ['wait', 'in', 'out'].includes(p.status) ? p.status : 'wait',
-    soStatus: ['na', 'wait', 'in', 'out'].includes(p.soStatus) ? p.soStatus : 'na',
+    // no sig-other name = no sig other
+    soStatus: !so ? 'na' : ['wait', 'in', 'out'].includes(p.soStatus) ? p.soStatus : 'wait',
   };
 }
 
@@ -179,7 +181,7 @@ const FILTERS = [
 ];
 // which of a person's two rows belong in a filter; the card shows only those rows
 function rowsFor(p, f) {
-  const hasSo = p.soStatus !== 'na';
+  const hasSo = !!p.so;
   if (f === 'all') return { guest: true, so: hasSo };
   if (f === 'untexted') return p.texted ? {} : { guest: true, so: hasSo };
   if (f === 'wait') return p.texted ? { guest: p.status === 'wait', so: p.soStatus === 'wait' } : {};
