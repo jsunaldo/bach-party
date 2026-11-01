@@ -60,6 +60,7 @@ h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 .chip.sms { text-decoration: none; color: var(--accent); }
 .row { display: flex; align-items: center; gap: 10px; }
 .row + .row { margin-top: 8px; }
+.top:last-child { margin-bottom: 0; }
 .row label { width: 84px; flex-shrink: 0; font-size: 13px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .seg { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--seg); border-radius: 999px; padding: 3px; }
@@ -176,19 +177,21 @@ const byId = id => people.find(p => p.id === id);
 const FILTERS = [
   ['all', 'All'], ['untexted', 'Not sent'], ['wait', 'Waiting'], ['in', 'In'], ['out', 'Out'],
 ];
-function matches(p, f) {
-  if (f === 'all') return true;
-  if (f === 'untexted') return !p.texted;
-  if (f === 'wait') return p.texted && (p.status === 'wait' || (p.status === 'in' && p.soStatus === 'wait'));
-  return p.status === f;
+// which of a person's two rows belong in a filter; the card shows only those rows
+function rowsFor(p, f) {
+  if (f === 'all') return { guest: true, so: true };
+  if (f === 'untexted') return p.texted ? {} : { guest: true, so: true };
+  if (f === 'wait') return p.texted ? { guest: p.status === 'wait', so: p.soStatus === 'wait' } : {};
+  return { guest: p.status === f, so: p.soStatus === f };
 }
+const matches = (p, f) => { const r = rowsFor(p, f); return !!(r.guest || r.so); };
 
 function render() {
   const total = people.length;
   const texted = people.filter(p => p.texted).length;
   const inN = people.filter(p => p.status === 'in').length;
   const outN = people.filter(p => p.status === 'out').length;
-  const waitN = people.filter(p => matches(p, 'wait')).length;
+  const waitN = people.reduce((n, p) => { const r = rowsFor(p, 'wait'); return n + !!r.guest + !!r.so; }, 0);
   const soIn = people.filter(p => p.soStatus === 'in').length;
   $('stats').innerHTML = `
     <div class="stat"><b>${texted}<small> / ${total}</small></b><span>Texted</span></div>
@@ -210,7 +213,7 @@ function render() {
     $('list').innerHTML = `<div class="empty">No one in this group.</div>`;
     return;
   }
-  $('list').innerHTML = shown.map(card).join('');
+  $('list').innerHTML = shown.map(p => card(p, rowsFor(p, filter))).join('');
 }
 
 function seg(id, field, value, opts, dim) {
@@ -219,7 +222,7 @@ function seg(id, field, value, opts, dim) {
   ).join('') + `</div>`;
 }
 
-function card(p) {
+function card(p, rows) {
   const sms = p.phone
     ? `<a class="chip sms" href="sms:${esc(p.phone.replace(/[^\d+]/g, ''))}" data-sms="${p.id}">Text</a>` : '';
   return `<div class="person">
@@ -228,10 +231,10 @@ function card(p) {
       ${sms}
       <button class="chip${p.texted ? ' texted' : ''}" data-texted="${p.id}">${p.texted ? '✓ Texted' : 'Not texted'}</button>
     </div>
-    <div class="row"><label>Guest</label>
-      ${seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>
-    <div class="row"><label>${p.so ? esc(p.so) : 'Sig other'}</label>
-      ${seg(p.id, 'soStatus', p.soStatus, [['na', 'None'], ['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>
+    ${rows.guest ? `<div class="row"><label>${esc(p.name)}</label>
+      ${seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
+    ${rows.so ? `<div class="row"><label>${p.so ? esc(p.so) : 'Sig other'}</label>
+      ${seg(p.id, 'soStatus', p.soStatus, [['na', 'None'], ['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
   </div>`;
 }
 
