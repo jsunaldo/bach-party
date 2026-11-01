@@ -179,8 +179,9 @@ const FILTERS = [
 ];
 // which of a person's two rows belong in a filter; the card shows only those rows
 function rowsFor(p, f) {
-  if (f === 'all') return { guest: true, so: true };
-  if (f === 'untexted') return p.texted ? {} : { guest: true, so: true };
+  const hasSo = p.soStatus !== 'na';
+  if (f === 'all') return { guest: true, so: hasSo };
+  if (f === 'untexted') return p.texted ? {} : { guest: true, so: hasSo };
   if (f === 'wait') return p.texted ? { guest: p.status === 'wait', so: p.soStatus === 'wait' } : {};
   return { guest: p.status === f, so: p.soStatus === f };
 }
@@ -234,7 +235,7 @@ function card(p, rows) {
     ${rows.guest ? `<div class="row"><label>${esc(p.name)}</label>
       ${seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
     ${rows.so ? `<div class="row"><label>${p.so ? esc(p.so) : 'Sig other'}</label>
-      ${seg(p.id, 'soStatus', p.soStatus, [['na', 'None'], ['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
+      ${seg(p.id, 'soStatus', p.soStatus, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
   </div>`;
 }
 
@@ -274,7 +275,7 @@ function personFields(p) {
   return `
     <label class="field"><span>Name</span><input id="fName" value="${esc(p.name || '')}" autocomplete="off" autocapitalize="words"></label>
     <label class="field"><span>Phone (optional — adds a Text button)</span><input id="fPhone" type="tel" value="${esc(p.phone || '')}" autocomplete="off"></label>
-    <label class="field"><span>Sig other's name (optional)</span><input id="fSo" value="${esc(p.so || '')}" autocomplete="off" autocapitalize="words"></label>`;
+    <label class="field"><span>Sig other's name (leave blank if none)</span><input id="fSo" value="${esc(p.so || '')}" autocomplete="off" autocapitalize="words"></label>`;
 }
 
 function openAdd() {
@@ -328,7 +329,8 @@ function openEdit(id) {
     const name = $('fName').value.trim();
     if (!name) { showError('Name can’t be blank. Type a name, or tap Remove from list.'); return; }
     const so = $('fSo').value.trim();
-    if (so && !p.so && p.soStatus === 'na') p.soStatus = 'wait';
+    if (!so) p.soStatus = 'na';
+    else if (p.soStatus === 'na') p.soStatus = 'wait';
     Object.assign(p, { name, phone: $('fPhone').value.trim(), so });
     save(); closeSheet(); render();
   };
