@@ -52,18 +52,20 @@ h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 
 .list { display: flex; flex-direction: column; gap: 10px; }
 .person { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
-.top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.name { flex: 1; min-width: 0; font-size: 18px; font-weight: 600; text-align: left; padding: 0;
+.top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.who { flex: 1; min-width: 0; }
+.name { display: block; max-width: 100%; font-size: 18px; font-weight: 600; text-align: left; padding: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chip { padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--seg); white-space: nowrap; }
+.chips { display: flex; gap: 6px; margin-top: 6px; }
+.chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--seg); white-space: nowrap; }
 .chip.texted { background: var(--accent); color: #fff; }
 .chip.sms { text-decoration: none; color: var(--accent); }
 .row { display: flex; align-items: center; gap: 10px; }
 .row + .row { margin-top: 8px; }
 .top:last-child { margin-bottom: 0; }
-.row label { width: 84px; flex-shrink: 0; font-size: 13px; color: var(--muted);
+.row label { flex: 1; min-width: 0; font-size: 15px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seg { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--seg); border-radius: 999px; padding: 3px; }
+.seg { flex: 0 0 150px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--seg); border-radius: 999px; padding: 3px; }
 .seg button { padding: 6px 0; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .seg button.on.in { color: var(--in); }
@@ -230,12 +232,15 @@ function card(p, rows) {
     ? `<a class="chip sms" href="sms:${esc(p.phone.replace(/[^\d+]/g, ''))}" data-sms="${p.id}">Text</a>` : '';
   return `<div class="person">
     <div class="top">
-      <button class="name" data-edit="${p.id}">${esc(p.name)}</button>
-      ${sms}
-      <button class="chip${p.texted ? ' texted' : ''}" data-texted="${p.id}">${p.texted ? '✓ Texted' : 'Not texted'}</button>
+      <div class="who">
+        <button class="name" data-edit="${p.id}">${esc(p.name)}</button>
+        <div class="chips">
+          <button class="chip${p.texted ? ' texted' : ''}" data-texted="${p.id}">${p.texted ? '✓ Texted' : 'Not texted'}</button>
+          ${sms}
+        </div>
+      </div>
+      ${rows.guest ? seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted) : ''}
     </div>
-    ${rows.guest ? `<div class="row"><label>${esc(p.name)}</label>
-      ${seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
     ${rows.so ? `<div class="row"><label>${p.so ? esc(p.so) : 'Sig other'}</label>
       ${seg(p.id, 'soStatus', p.soStatus, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
   </div>`;
