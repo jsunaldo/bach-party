@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bach RSVP">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Bach RSVP</title>
+<style>
+:root {
+  --bg: #f5f5f7; --card: #fff; --text: #1d1d1f; --muted: #86868b;
+  --line: rgba(0,0,0,.1); --seg: #e8e8ed; --accent: #0071e3;
+  --in: #1f9d55; --out: #d70015; --wait: #b26a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000; --card: #111113; --text: #f5f5f7; --muted: #8e8e93;
+    --line: rgba(255,255,255,.12); --seg: #1c1c1e; --accent: #2997ff;
+    --in: #30d158; --out: #ff453a; --wait: #ffb340;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+body {
+  font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px calc(env(safe-area-inset-bottom) + 96px);
+  max-width: 560px; margin: 0 auto;
+}
+button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+header { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 16px; }
+h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--seg); font-size: 20px; }
+
+.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
+.stat b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+.stat span { color: var(--muted); font-size: 13px; }
+.stat small { color: var(--muted); font-size: 13px; font-weight: 400; }
+
+.filters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
+.filters button {
+  padding: 8px 0; border-radius: 999px; background: var(--seg); font-size: 13px; font-weight: 600;
+  white-space: nowrap;
+}
+@media (max-width: 359px) { .filters { gap: 4px; } .filters button { font-size: 12px; } }
+.filters button.on { background: var(--text); color: var(--bg); }
+
+.list { display: flex; flex-direction: column; gap: 10px; }
+.person { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+.top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.name { flex: 1; min-width: 0; font-size: 18px; font-weight: 600; text-align: left; padding: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip { padding: 6px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; background: var(--seg); white-space: nowrap; }
+.chip.texted { background: var(--accent); color: #fff; }
+.chip.sms { text-decoration: none; color: var(--accent); }
+.row { display: flex; align-items: center; gap: 10px; }
+.row + .row { margin-top: 8px; }
+.row label { width: 84px; flex-shrink: 0; font-size: 13px; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seg { flex: 1; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--seg); border-radius: 999px; padding: 3px; }
+.seg button { padding: 6px 0; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--muted); }
+.seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+.seg button.on.in { color: var(--in); }
+.seg button.on.out { color: var(--out); }
+.seg button.on.wait { color: var(--wait); }
+.seg.dim { opacity: .45; }
+
+.empty { text-align: center; color: var(--muted); padding: 48px 16px; }
+.fab {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom) + 20px);
+  background: var(--text); color: var(--bg); padding: 14px 28px; border-radius: 999px;
+  font-weight: 600; font-size: 17px; white-space: nowrap; box-shadow: 0 6px 20px rgba(0,0,0,.25);
+}
+
+.sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: flex-end; justify-content: center; z-index: 10; }
+.sheet-bg.hidden { display: none; }
+.sheet {
+  background: var(--bg); width: 100%; max-width: 560px; border-radius: 20px 20px 0 0;
+  padding: 20px 16px calc(env(safe-area-inset-bottom) + 20px); max-height: 90vh; overflow-y: auto;
+}
+.sheet h2 { margin: 0 0 16px; font-size: 22px; }
+.field { display: block; margin-bottom: 12px; }
+.field span { display: block; font-size: 13px; color: var(--muted); margin: 0 0 4px 4px; }
+.field input, .field textarea {
+  width: 100%; font: inherit; font-size: 17px; color: var(--text); background: var(--card);
+  border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+}
+.field textarea { min-height: 160px; resize: vertical; }
+.btns { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin-top: 8px; }
+.btn { padding: 14px; border-radius: 999px; background: var(--seg); font-weight: 600; text-align: center; }
+.btn.primary { background: var(--text); color: var(--bg); }
+.btn.danger { color: var(--out); }
+.link { display: block; width: 100%; text-align: center; color: var(--accent); padding: 12px; font-size: 15px; }
+.menu .btn { display: block; width: 100%; margin-bottom: 8px; }
+.hint { color: var(--muted); font-size: 13px; margin: -4px 4px 12px; }
+
+#toast {
+  position: fixed; left: 16px; right: 16px; top: calc(env(safe-area-inset-top) + 12px); z-index: 20;
+  max-width: 528px; margin: 0 auto; background: var(--text); color: var(--bg);
+  border-radius: 14px; padding: 12px 14px; font-size: 15px; display: none;
+}
+#toast.err { background: var(--out); color: #fff; }
+#toast.show { display: block; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Bach RSVP</h1>
+  <button class="icon-btn" id="menuBtn" aria-label="Menu">⋯</button>
+</header>
+
+<section class="stats" id="stats"></section>
+<nav class="filters" id="filters"></nav>
+<section class="list" id="list"></section>
+
+<button class="fab" id="addBtn">+ Add people</button>
+
+<div class="sheet-bg hidden" id="sheetBg"><div class="sheet" id="sheet"></div></div>
+<input type="file" id="importFile" accept=".json,application/json" hidden>
+<div id="toast" role="status"></div>
+
+<script>
+'use strict';
+const KEY = 'bach-rsvp-v1';
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// person: { id, name, phone, so, texted, status: wait|in|out, soStatus: na|wait|in|out }
+let people = [];
+let filter = 'all';
+let editingId = null;
+
+function load() {
+  let raw = null;
+  try { raw = localStorage.getItem(KEY); } catch (e) {}
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (Array.isArray(data)) people = data.map(clean).filter(Boolean);
+  } catch (e) {
+    showError("Couldn't read your saved list. Nothing has been changed or deleted. Do this: ⋯ → Restore backup if you have one; otherwise reload the app. If it keeps happening, tell Claude.");
+  }
+}
+
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(people));
+  } catch (e) {
+    showError("Couldn't save that change — your phone blocked storage (often Private Browsing or full storage). Your list is still on screen. Do this: ⋯ → Save backup now, then open the app from the Home Screen icon, not a private tab.");
+  }
+}
+
+function clean(p) {
+  if (!p || typeof p.name !== 'string' || !p.name.trim()) return null;
+  return {
+    id: String(p.id || uid()),
+    name: p.name.trim(),
+    phone: typeof p.phone === 'string' ? p.phone.trim() : '',
+    so: typeof p.so === 'string' ? p.so.trim() : '',
+    texted: !!p.texted,
+    status: ['wait', 'in', 'out'].includes(p.status) ? p.status : 'wait',
+    soStatus: ['na', 'wait', 'in', 'out'].includes(p.soStatus) ? p.soStatus : 'na',
+  };
+}
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+const byId = id => people.find(p => p.id === id);
+
+// ---------- render ----------
+const FILTERS = [
+  ['all', 'All'], ['untexted', 'Not sent'], ['wait', 'Waiting'], ['in', 'In'], ['out', 'Out'],
+];
+function matches(p, f) {
+  if (f === 'all') return true;
+  if (f === 'untexted') return !p.texted;
+  if (f === 'wait') return p.texted && (p.status === 'wait' || (p.status === 'in' && p.soStatus === 'wait'));
+  return p.status === f;
+}
+
+function render() {
+  const total = people.length;
+  const texted = people.filter(p => p.texted).length;
+  const inN = people.filter(p => p.status === 'in').length;
+  const outN = people.filter(p => p.status === 'out').length;
+  const waitN = people.filter(p => matches(p, 'wait')).length;
+  const soIn = people.filter(p => p.soStatus === 'in').length;
+  $('stats').innerHTML = `
+    <div class="stat"><b>${texted}<small> / ${total}</small></b><span>Texted</span></div>
+    <div class="stat"><b>${inN + soIn}<small> = ${inN} + ${soIn} SO</small></b><span>Headcount</span></div>
+    <div class="stat"><b style="color:var(--in)">${inN}</b><span>In · ${outN} out</span></div>
+    <div class="stat"><b style="color:var(--wait)">${waitN}</b><span>Waiting to hear</span></div>`;
+
+  $('filters').innerHTML = FILTERS.map(([k, label]) =>
+    `<button data-filter="${k}" class="${filter === k ? 'on' : ''}">${label}</button>`).join('');
+
+  const shown = people.filter(p => matches(p, filter))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+  if (!total) {
+    $('list').innerHTML = `<div class="empty">No one yet.<br>Tap <b>+ Add people</b> to start your list.</div>`;
+    return;
+  }
+  if (!shown.length) {
+    $('list').innerHTML = `<div class="empty">No one in this group.</div>`;
+    return;
+  }
+  $('list').innerHTML = shown.map(card).join('');
+}
+
+function seg(id, field, value, opts, dim) {
+  return `<div class="seg${dim ? ' dim' : ''}">` + opts.map(([v, label]) =>
+    `<button data-id="${id}" data-field="${field}" data-value="${v}" class="${value === v ? 'on ' + v : ''}">${label}</button>`
+  ).join('') + `</div>`;
+}
+
+function card(p) {
+  const sms = p.phone
+    ? `<a class="chip sms" href="sms:${esc(p.phone.replace(/[^\d+]/g, ''))}" data-sms="${p.id}">Text</a>` : '';
+  return `<div class="person">
+    <div class="top">
+      <button class="name" data-edit="${p.id}">${esc(p.name)}</button>
+      ${sms}
+      <button class="chip${p.texted ? ' texted' : ''}" data-texted="${p.id}">${p.texted ? '✓ Texted' : 'Not texted'}</button>
+    </div>
+    <div class="row"><label>Guest</label>
+      ${seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>
+    <div class="row"><label>${p.so ? esc(p.so) : 'Sig other'}</label>
+      ${seg(p.id, 'soStatus', p.soStatus, [['na', 'None'], ['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>
+  </div>`;
+}
+
+// ---------- actions ----------
+document.addEventListener('click', e => {
+  const t = e.target.closest('button, a');
+  if (!t) return;
+  if (t.dataset.filter) { filter = t.dataset.filter; render(); return; }
+  if (t.dataset.texted) {
+    const p = byId(t.dataset.texted); if (!p) return;
+    p.texted = !p.texted; save(); render(); return;
+  }
+  if (t.dataset.sms) {
+    // let the sms: link open; mark texted so the list keeps up
+    const p = byId(t.dataset.sms);
+    if (p && !p.texted) { p.texted = true; save(); setTimeout(render, 300); }
+    return;
+  }
+  if (t.dataset.field) {
+    const p = byId(t.dataset.id); if (!p) return;
+    p[t.dataset.field] = t.dataset.value;
+    if (t.dataset.value !== 'wait' && t.dataset.value !== 'na') p.texted = true; // an answer means they got it
+    save(); render(); return;
+  }
+  if (t.dataset.edit) { openEdit(t.dataset.edit); return; }
+});
+
+$('addBtn').onclick = () => openAdd();
+$('menuBtn').onclick = () => openMenu();
+$('sheetBg').addEventListener('click', e => { if (e.target === $('sheetBg')) closeSheet(); });
+
+function openSheet(html) { $('sheet').innerHTML = html; $('sheetBg').classList.remove('hidden'); }
+function closeSheet() { $('sheetBg').classList.add('hidden'); $('sheet').innerHTML = ''; editingId = null; }
+
+function personFields(p) {
+  p = p || {};
+  return `
+    <label class="field"><span>Name</span><input id="fName" value="${esc(p.name || '')}" autocomplete="off" autocapitalize="words"></label>
+    <label class="field"><span>Phone (optional — adds a Text button)</span><input id="fPhone" type="tel" value="${esc(p.phone || '')}" autocomplete="off"></label>
+    <label class="field"><span>Sig other's name (optional)</span><input id="fSo" value="${esc(p.so || '')}" autocomplete="off" autocapitalize="words"></label>`;
+}
+
+function openAdd() {
+  openSheet(`<h2>Add a person</h2>${personFields()}
+    <div class="btns"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="saveOne">Add</button></div>
+    <button class="link" id="toList">Paste a whole list instead</button>`);
+  $('fName').focus();
+  $('cancel').onclick = closeSheet;
+  $('toList').onclick = openPaste;
+  $('saveOne').onclick = () => {
+    const name = $('fName').value.trim();
+    if (!name) { showError('Type a name first, then tap Add.'); return; }
+    const so = $('fSo').value.trim();
+    people.push(clean({ name, phone: $('fPhone').value, so, soStatus: so ? 'wait' : 'na' }));
+    save(); closeSheet(); render(); toast(`Added ${name}`);
+  };
+}
+
+function openPaste() {
+  openSheet(`<h2>Paste a list</h2>
+    <p class="hint">One person per line. Add a sig other after a dash or "&amp;" — e.g. <b>Mike - Sarah</b>.</p>
+    <label class="field"><textarea id="fList" placeholder="Mike - Sarah&#10;Chris&#10;Dave &amp; Jen"></textarea></label>
+    <div class="btns"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="saveList">Add all</button></div>`);
+  $('fList').focus();
+  $('cancel').onclick = closeSheet;
+  $('saveList').onclick = () => {
+    const lines = $('fList').value.split(/\n/).map(s => s.trim()).filter(Boolean);
+    if (!lines.length) { showError('Paste or type at least one name, one per line, then tap Add all.'); return; }
+    const existing = new Set(people.map(p => p.name.toLowerCase()));
+    let added = 0, skipped = 0;
+    for (const line of lines) {
+      const [name, so = ''] = line.split(/\s+(?:-|–|—|&|\+)\s+/).map(s => s.trim());
+      if (!name || existing.has(name.toLowerCase())) { skipped++; continue; }
+      existing.add(name.toLowerCase());
+      people.push(clean({ name, so, soStatus: so ? 'wait' : 'na' }));
+      added++;
+    }
+    save(); closeSheet(); render();
+    toast(`Added ${added}${skipped ? ` · skipped ${skipped} already on the list` : ''}`);
+  };
+}
+
+function openEdit(id) {
+  const p = byId(id); if (!p) return;
+  editingId = id;
+  openSheet(`<h2>Edit</h2>${personFields(p)}
+    <div class="btns"><button class="btn" id="cancel">Cancel</button><button class="btn primary" id="saveEdit">Save</button></div>
+    <button class="link btn danger" id="del" style="background:none">Remove from list</button>`);
+  $('cancel').onclick = closeSheet;
+  $('saveEdit').onclick = () => {
+    const name = $('fName').value.trim();
+    if (!name) { showError('Name can’t be blank. Type a name, or tap Remove from list.'); return; }
+    const so = $('fSo').value.trim();
+    if (so && !p.so && p.soStatus === 'na') p.soStatus = 'wait';
+    Object.assign(p, { name, phone: $('fPhone').value.trim(), so });
+    save(); closeSheet(); render();
+  };
+  $('del').onclick = () => {
+    if (!confirm(`Remove ${p.name} from the list?`)) return;
+    people = people.filter(x => x.id !== id);
+    save(); closeSheet(); render(); toast(`Removed ${p.name}`);
+  };
+}
+
+function openMenu() {
+  openSheet(`<h2>Menu</h2><div class="menu">
+    <button class="btn" id="copySum">Copy headcount summary</button>
+    <button class="btn" id="exportB">Save backup now</button>
+    <button class="btn" id="importB">Restore backup</button>
+    <button class="btn" id="cancel">Close</button></div>
+    <p class="hint">Your list lives on this phone only. Save a backup now and then (it goes to Files).</p>`);
+  $('cancel').onclick = closeSheet;
+  $('copySum').onclick = copySummary;
+  $('exportB').onclick = exportBackup;
+  $('importB').onclick = () => $('importFile').click();
+}
+
+function summaryText() {
+  const sorted = [...people].sort((a, b) => a.name.localeCompare(b.name));
+  const who = (st) => sorted.filter(p => p.status === st).map(p => p.name + (p.soStatus === 'in' ? ` + ${p.so || 'sig other'}` : ''));
+  const inN = people.filter(p => p.status === 'in').length + people.filter(p => p.soStatus === 'in').length;
+  const lines = [`Bach headcount: ${inN}`];
+  const inL = who('in'), outL = sorted.filter(p => p.status === 'out').map(p => p.name);
+  const waitL = sorted.filter(p => p.texted && p.status === 'wait').map(p => p.name);
+  if (inL.length) lines.push(`In: ${inL.join(', ')}`);
+  if (outL.length) lines.push(`Out: ${outL.join(', ')}`);
+  if (waitL.length) lines.push(`Waiting: ${waitL.join(', ')}`);
+  return lines.join('\n');
+}
+
+async function copySummary() {
+  const text = summaryText();
+  try {
+    await navigator.clipboard.writeText(text);
+    closeSheet(); toast('Summary copied — paste it into a text');
+  } catch (e) {
+    showError("Couldn't copy to the clipboard. Nothing changed. Do this: try again; if it still fails, take a screenshot of the list instead.");
+  }
+}
+
+async function exportBackup() {
+  const json = JSON.stringify({ app: 'bach-rsvp', v: 1, saved: new Date().toISOString(), people }, null, 2);
+  const name = `bach-rsvp-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  try {
+    const file = new File([json], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] });
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(file); a.download = name; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    }
+    closeSheet(); toast('Backup saved');
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // user closed the share sheet
+    showError("Backup didn't save. Your list on this phone is untouched. Do this: tap ⋯ → Save backup now again and pick “Save to Files”.");
+  }
+}
+
+$('importFile').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const list = Array.isArray(data) ? data : data.people;
+    if (!Array.isArray(list)) throw new Error('shape');
+    const restored = list.map(clean).filter(Boolean);
+    if (!confirm(`Replace your current list (${people.length}) with the backup (${restored.length} people)?`)) return;
+    people = restored; save(); closeSheet(); render(); toast(`Restored ${restored.length} people`);
+  } catch (err) {
+    showError("That file isn't a Bach RSVP backup, so nothing was changed. Do this: ⋯ → Restore backup and pick a file named bach-rsvp-backup-….json.");
+  }
+};
+
+// ---------- messages ----------
+let toastTimer;
+function toast(msg) { flash(msg, false, 2200); }
+function showError(msg) { flash(msg, true, 9000); }
+function flash(msg, err, ms) {
+  const t = $('toast');
+  t.textContent = msg; t.className = 'show' + (err ? ' err' : '');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.className = ''; }, ms);
+}
+$('toast').onclick = () => { $('toast').className = ''; };
+window.addEventListener('error', () => showError("Something went wrong in the app. Your list is saved on this phone. Do this: close the app fully and reopen it; if it repeats, ⋯ → Save backup now and tell Claude."));
+window.addEventListener('unhandledrejection', () => showError("Something went wrong in the app. Your list is saved on this phone. Do this: close the app fully and reopen it; if it repeats, ⋯ → Save backup now and tell Claude."));
+
+load();
+render();
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
