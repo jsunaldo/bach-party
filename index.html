@@ -199,11 +199,12 @@ function render() {
   const outN = people.filter(p => p.status === 'out').length;
   const waitN = people.reduce((n, p) => { const r = rowsFor(p, 'wait'); return n + !!r.guest + !!r.so; }, 0);
   const soIn = people.filter(p => p.soStatus === 'in').length;
+  const soOut = people.filter(p => p.soStatus === 'out').length;
   $('stats').innerHTML = `
     <div class="stat"><b>${texted}<small> / ${total}</small></b><span>Texted</span></div>
-    <div class="stat"><b>${inN + soIn}<small> = ${inN} + ${soIn} SO</small></b><span>Headcount</span></div>
-    <div class="stat"><b style="color:var(--in)">${inN}</b><span>In · ${outN} out</span></div>
-    <div class="stat"><b style="color:var(--wait)">${waitN}</b><span>Waiting to hear</span></div>`;
+    <div class="stat"><b style="color:var(--wait)">${waitN}</b><span>Waiting to hear</span></div>
+    <div class="stat"><b style="color:var(--in)">${inN + soIn}<small> = ${inN} + ${soIn} SO</small></b><span>Headcount</span></div>
+    <div class="stat"><b style="color:var(--out)">${outN + soOut}<small> = ${outN} + ${soOut} SO</small></b><span>Out</span></div>`;
 
   $('filters').innerHTML = FILTERS.map(([k, label]) =>
     `<button data-filter="${k}" class="${filter === k ? 'on' : ''}">${label}</button>`).join('');
