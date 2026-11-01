@@ -56,7 +56,8 @@ h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 .who { flex: 1; min-width: 0; }
 .name { display: block; max-width: 100%; font-size: 18px; font-weight: 600; text-align: left; padding: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chips { display: flex; gap: 6px; margin-top: 6px; }
+.chips { display: flex; gap: 6px; margin-bottom: 6px; }
+@media (max-width: 359px) { .seg { flex-basis: 132px; } }
 .chip { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--seg); white-space: nowrap; }
 .chip.texted { background: var(--accent); color: #fff; }
 .chip.sms { text-decoration: none; color: var(--accent); }
@@ -229,15 +230,15 @@ function seg(id, field, value, opts, dim) {
 
 function card(p, rows) {
   const sms = p.phone
-    ? `<a class="chip sms" href="sms:${esc(p.phone.replace(/[^\d+]/g, ''))}" data-sms="${p.id}">Text</a>` : '';
+    ? `<a class="chip sms" href="sms:${esc(p.phone.replace(/[^\d+]/g, ''))}" data-sms="${p.id}" aria-label="Text ${esc(p.name)}">💬</a>` : '';
   return `<div class="person">
     <div class="top">
       <div class="who">
-        <button class="name" data-edit="${p.id}">${esc(p.name)}</button>
         <div class="chips">
           <button class="chip${p.texted ? ' texted' : ''}" data-texted="${p.id}">${p.texted ? '✓ Texted' : 'Not texted'}</button>
           ${sms}
         </div>
+        <button class="name" data-edit="${p.id}">${esc(p.name)}</button>
       </div>
       ${rows.guest ? seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted) : ''}
     </div>
