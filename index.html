@@ -15,13 +15,13 @@
 :root {
   --bg: #f5f5f7; --card: #fff; --text: #1d1d1f; --muted: #86868b;
   --line: rgba(0,0,0,.1); --seg: #e8e8ed; --accent: #0071e3;
-  --in: #1f9d55; --out: #d70015; --wait: #b26a00;
+  --in: #1f9d55; --out: #d70015; --wait: #b26a00; --dinner: #8944ab;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #000; --card: #111113; --text: #f5f5f7; --muted: #8e8e93;
     --line: rgba(255,255,255,.12); --seg: #1c1c1e; --accent: #2997ff;
-    --in: #30d158; --out: #ff453a; --wait: #ffb340;
+    --in: #30d158; --out: #ff453a; --wait: #ffb340; --dinner: #bf5af2;
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -46,6 +46,7 @@ h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 .stat b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
 .stat span { color: var(--muted); font-size: 13px; }
 .stat small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.stat.wide { grid-column: 1 / -1; }
 
 .filters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
 .filters button {
@@ -62,16 +63,19 @@ h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
   display: grid; place-items: center; color: #fff; font-size: 14px; font-weight: 700; line-height: 1; padding: 0; }
 .check.on { background: var(--accent); border-color: var(--accent); }
 .name { flex: 1; min-width: 0; font-size: 18px; font-weight: 600; text-align: left; padding: 0 0 0 4px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  line-height: 1.2; overflow-wrap: anywhere; }
+.din { flex: 0 0 32px; width: 32px; height: 32px; border-radius: 50%; background: var(--seg); font-size: 16px;
+  line-height: 1; padding: 0; filter: grayscale(1); opacity: .45; }
+.din.on { background: var(--dinner); filter: none; opacity: 1; }
 .sms { flex: 0 0 auto; text-decoration: none; font-size: 18px; line-height: 1; }
-@media (max-width: 359px) { .person .seg { flex-basis: 120px; } .name { font-size: 17px; } .person { padding: 12px; } }
+@media (max-width: 359px) { .person .seg { flex-basis: 112px; } .din { flex-basis: 28px; width: 28px; height: 28px; font-size: 14px; } .name { font-size: 17px; } .person { padding: 12px; } }
 .row { display: flex; align-items: center; gap: 8px; }
 .row::before { content: ''; flex: 0 0 24px; } /* line up with the name, past the checkbox */
 .row + .row { margin-top: 8px; }
 .top:last-child { margin-bottom: 0; }
 .row label { flex: 1; min-width: 0; padding-left: 4px; font-size: 15px; color: var(--muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.seg { flex: 0 0 150px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--seg); border-radius: 999px; padding: 3px; }
+.seg { flex: 0 0 132px; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--seg); border-radius: 999px; padding: 3px; }
 .seg button { padding: 6px 0; border-radius: 999px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .seg button.on { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
 .seg button.on.in { color: var(--in); }
@@ -145,7 +149,9 @@ const KEY = 'bach-rsvp-v1';
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// person: { id, name, phone, so, texted, status: wait|in|out, soStatus: na|wait|in|out }
+// person: { id, name, phone, so, texted, status: wait|in|out, soStatus: na|wait|in|out, dinner, soDinner }
+// dinner only counts while that person is In
+const atDinner = (p, who) => who === 'guest' ? p.status === 'in' && p.dinner : p.soStatus === 'in' && p.soDinner;
 let people = [];
 let filter = 'all';
 let editingId = null;
@@ -182,6 +188,8 @@ function clean(p) {
     status: ['wait', 'in', 'out'].includes(p.status) ? p.status : 'wait',
     // no sig-other name = no sig other
     soStatus: !so ? 'na' : ['wait', 'in', 'out'].includes(p.soStatus) ? p.soStatus : 'wait',
+    dinner: !!p.dinner,
+    soDinner: !!p.soDinner,
   };
 }
 
@@ -211,11 +219,14 @@ function render() {
   const waitSo = people.filter(p => rowsFor(p, 'wait').so).length;
   const soIn = people.filter(p => p.soStatus === 'in').length;
   const soOut = people.filter(p => p.soStatus === 'out').length;
+  const dinG = people.filter(p => atDinner(p, 'guest')).length;
+  const dinS = people.filter(p => atDinner(p, 'so')).length;
   $('stats').innerHTML = `
     <div class="stat"><b>${texted}<small> / ${total}</small></b><span>Texted</span></div>
     <div class="stat"><b style="color:var(--wait)">${waitG + waitSo}<small> = ${waitG} + ${waitSo} SO</small></b><span>Waiting to hear</span></div>
-    <div class="stat"><b style="color:var(--in)">${inN + soIn}<small> = ${inN} + ${soIn} SO</small></b><span>Headcount</span></div>
-    <div class="stat"><b style="color:var(--out)">${outN + soOut}<small> = ${outN} + ${soOut} SO</small></b><span>Out</span></div>`;
+    <div class="stat"><b style="color:var(--in)">${inN + soIn}<small> = ${inN} + ${soIn} SO</small></b><span>Party headcount</span></div>
+    <div class="stat"><b style="color:var(--dinner)">${dinG + dinS}<small> = ${dinG} + ${dinS} SO</small></b><span>Dinner headcount</span></div>
+    <div class="stat wide"><b style="color:var(--out)">${outN + soOut}<small> = ${outN} + ${soOut} SO</small></b><span>Out</span></div>`;
 
   $('filters').innerHTML = FILTERS.map(([k, label]) =>
     `<button data-filter="${k}" class="${filter === k ? 'on' : ''}">${label}</button>`).join('');
@@ -240,6 +251,13 @@ function seg(id, field, value, opts, dim) {
   ).join('') + `</div>`;
 }
 
+// dinner toggle, only once that person is In
+function din(p, who) {
+  if ((who === 'so' ? p.soStatus : p.status) !== 'in') return '';
+  const on = atDinner(p, who), nm = who === 'so' ? p.so : p.name;
+  return `<button class="din${on ? ' on' : ''}" data-dinner="${p.id}" data-who="${who}" aria-label="${esc(nm)} ${on ? 'going' : 'not going'} to dinner">🍽️</button>`;
+}
+
 function card(p, rows) {
   const sms = p.phone
     ? `<a class="sms" href="sms:${esc(p.phone.replace(/[^\d+]/g, ''))}" data-sms="${p.id}" aria-label="Text ${esc(p.name)}">💬</a>` : '';
@@ -248,9 +266,11 @@ function card(p, rows) {
       <button class="check${p.texted ? ' on' : ''}" data-texted="${p.id}" aria-label="${p.texted ? 'Texted' : 'Not texted'}">${p.texted ? '✓' : ''}</button>
       <button class="name" data-edit="${p.id}">${esc(p.name)}</button>
       ${sms}
+      ${rows.guest ? din(p, 'guest') : ''}
       ${rows.guest ? seg(p.id, 'status', p.status, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted) : ''}
     </div>
     ${rows.so ? `<div class="row"><label>${p.so ? esc(p.so) : 'Sig other'}</label>
+      ${din(p, 'so')}
       ${seg(p.id, 'soStatus', p.soStatus, [['wait', '?'], ['in', 'In'], ['out', 'Out']], !p.texted)}</div>` : ''}
   </div>`;
 }
@@ -269,6 +289,11 @@ document.addEventListener('click', e => {
     const p = byId(t.dataset.sms);
     if (p && !p.texted) { p.texted = true; save(); setTimeout(render, 300); }
     return;
+  }
+  if (t.dataset.dinner) {
+    const p = byId(t.dataset.dinner); if (!p) return;
+    const k = t.dataset.who === 'so' ? 'soDinner' : 'dinner';
+    p[k] = !p[k]; save(); render(); return;
   }
   if (t.dataset.field) {
     const p = byId(t.dataset.id); if (!p) return;
@@ -422,7 +447,7 @@ function drawShare() {
 
   const W = 1080, M = 64, GAP = 40, COLW = (W - 2 * M - GAP) / 2, ROW = 60;
   const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif';
-  let H = M + 90 + 40 + 2 * 170 + 24 + 40;
+  let H = M + 90 + 40 + 3 * 146 + 2 * 24 + 64;
   for (const [, , list] of sections) H += 96 + Math.ceil(list.length / 2) * ROW + 24;
   if (!sections.length) H += 120;
   H += M - 24;
@@ -444,24 +469,27 @@ function drawShare() {
 
   const inG = people.filter(p => p.status === 'in').length, inS = people.filter(p => p.so && p.soStatus === 'in').length;
   const outG = people.filter(p => p.status === 'out').length, outS = people.filter(p => p.so && p.soStatus === 'out').length;
+  const dG = people.filter(p => atDinner(p, 'guest')).length, dS = people.filter(p => atDinner(p, 'so')).length;
   const wG = people.filter(p => isWait(p, 'guest')).length, wS = people.filter(p => p.so && isWait(p, 'so')).length;
   const tiles = [
     [`${people.filter(p => p.texted).length}`, ` / ${people.length}`, 'Texted', '#f5f5f7'],
     [`${wG + wS}`, ` = ${wG} + ${wS} SO`, 'Waiting to hear', '#ffb340'],
-    [`${inG + inS}`, ` = ${inG} + ${inS} SO`, 'Headcount', '#30d158'],
+    [`${inG + inS}`, ` = ${inG} + ${inS} SO`, 'Party headcount', '#30d158'],
+    [`${dG + dS}`, ` = ${dG} + ${dS} SO`, 'Dinner headcount', '#bf5af2'],
     [`${outG + outS}`, ` = ${outG} + ${outS} SO`, 'Out', '#ff453a'],
   ];
   const TW = (W - 2 * M - 24) / 2, TH = 146;
   tiles.forEach(([big, small, label, color], i) => {
     const tx = M + (i % 2) * (TW + 24), ty = y + Math.floor(i / 2) * (TH + 24);
-    rr(tx, ty, TW, TH, 28); x.fillStyle = '#111113'; x.fill();
+    const wide = i === tiles.length - 1 && tiles.length % 2; // odd last tile spans the row
+    rr(tx, ty, wide ? W - 2 * M : TW, TH, 28); x.fillStyle = '#111113'; x.fill();
     x.strokeStyle = 'rgba(255,255,255,.12)'; x.lineWidth = 2; x.stroke();
     x.fillStyle = color; x.font = `700 64px ${FONT}`; x.fillText(big, tx + 28, ty + 22);
     const bw = x.measureText(big).width;
     x.fillStyle = '#8e8e93'; x.font = `500 30px ${FONT}`; x.fillText(small, tx + 28 + bw + 6, ty + 52);
     x.fillText(label, tx + 28, ty + 98);
   });
-  y += 2 * TH + 24 + 64;
+  y += 3 * TH + 2 * 24 + 64;
 
   if (!sections.length) {
     x.fillStyle = '#8e8e93'; x.font = `500 36px ${FONT}`; x.fillText('No one on the list yet.', M, y);
