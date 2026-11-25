@@ -34,7 +34,12 @@ body {
 button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
 header { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 16px; }
 h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
-.icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--seg); font-size: 20px; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; background: var(--seg); font-size: 20px;
+  display: inline-grid; place-items: center; vertical-align: middle; }
+.icon-btn svg { width: 20px; height: 20px; }
+.head-btns { display: flex; gap: 8px; }
+.shot { display: block; width: 100%; border-radius: 14px; border: 1px solid var(--line); margin-bottom: 12px;
+  -webkit-touch-callout: default; }
 
 .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
 .stat { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
@@ -116,7 +121,12 @@ h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 <body>
 <header>
   <h1>Bach RSVP</h1>
-  <button class="icon-btn" id="menuBtn" aria-label="Menu">⋯</button>
+  <div class="head-btns">
+    <button class="icon-btn" id="shareBtn" aria-label="Share a picture of the RSVPs">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+    </button>
+    <button class="icon-btn" id="menuBtn" aria-label="Menu">⋯</button>
+  </div>
 </header>
 
 <section class="stats" id="stats"></section>
@@ -271,6 +281,7 @@ document.addEventListener('click', e => {
 
 $('addBtn').onclick = () => openAdd();
 $('menuBtn').onclick = () => openMenu();
+$('shareBtn').onclick = () => openShare();
 $('sheetBg').addEventListener('click', e => { if (e.target === $('sheetBg')) closeSheet(); });
 
 function openSheet(html) { $('sheet').innerHTML = html; $('sheetBg').classList.remove('hidden'); }
@@ -349,6 +360,7 @@ function openEdit(id) {
 
 function openMenu() {
   openSheet(`<h2>Menu</h2><div class="menu">
+    <button class="btn" id="shareB">Share picture</button>
     <button class="btn" id="copySum">Copy headcount summary</button>
     <button class="btn" id="exportB">Save backup now</button>
     <button class="btn" id="importB">Restore backup</button>
@@ -356,6 +368,7 @@ function openMenu() {
     <p class="hint">Your list lives on this phone only. Save a backup now and then (it goes to Files).</p>`);
   $('cancel').onclick = closeSheet;
   $('copySum').onclick = copySummary;
+  $('shareB').onclick = openShare;
   $('exportB').onclick = exportBackup;
   $('importB').onclick = () => $('importFile').click();
 }
@@ -380,6 +393,143 @@ async function copySummary() {
     closeSheet(); toast('Summary copied — paste it into a text');
   } catch (e) {
     showError("Couldn't copy to the clipboard. Nothing changed. Do this: try again; if it still fails, take a screenshot of the list instead.");
+  }
+}
+
+// ---------- share picture ----------
+// One entry per couple per bucket: "Jason & Shannon" when both match, else whoever does.
+function bucket(test) {
+  return [...people].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    .map(p => {
+      const g = test(p, 'guest'), s = !!p.so && test(p, 'so');
+      return g && s ? `${p.name} & ${p.so}` : g ? p.name : s ? `${p.so} (${p.name}'s)` : null;
+    }).filter(Boolean);
+}
+
+function drawShare() {
+  const st = (p, who) => who === 'guest' ? p.status : p.soStatus;
+  const count = test => people.reduce((n, p) => n + !!test(p, 'guest') + (!!p.so && !!test(p, 'so')), 0);
+  const isIn = (p, w) => st(p, w) === 'in';
+  const isOut = (p, w) => st(p, w) === 'out';
+  const isWait = (p, w) => p.texted && st(p, w) === 'wait';
+  const notSent = p => !p.texted && p.status === 'wait'; // anyone who answered isn't "not texted"
+  const sections = [
+    ['In', '#30d158', bucket(isIn), count(isIn)],
+    ['Waiting to hear', '#ffb340', bucket(isWait), count(isWait)],
+    ['Out', '#ff453a', bucket(isOut), count(isOut)],
+    ['Not texted yet', '#8e8e93', bucket(notSent), count(notSent)],
+  ].filter(x => x[2].length);
+
+  const W = 1080, M = 64, GAP = 40, COLW = (W - 2 * M - GAP) / 2, ROW = 60;
+  const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif';
+  let H = M + 90 + 40 + 2 * 170 + 24 + 40;
+  for (const [, , list] of sections) H += 96 + Math.ceil(list.length / 2) * ROW + 24;
+  if (!sections.length) H += 120;
+  H += M - 24;
+
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  x.fillStyle = '#000'; x.fillRect(0, 0, W, H);
+  const rr = (X, Y, w, h, r) => { x.beginPath(); x.roundRect(X, Y, w, h, r); };
+  const fit = (t, max) => { if (x.measureText(t).width <= max) return t;
+    while (t.length > 1 && x.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; };
+
+  let y = M;
+  x.fillStyle = '#f5f5f7'; x.font = `700 72px ${FONT}`; x.textBaseline = 'top';
+  x.fillText('Bach RSVP', M, y);
+  x.fillStyle = '#8e8e93'; x.font = `500 30px ${FONT}`; x.textAlign = 'right';
+  x.fillText(new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }), W - M, y + 30);
+  x.textAlign = 'left';
+  y += 90 + 40;
+
+  const inG = people.filter(p => p.status === 'in').length, inS = people.filter(p => p.so && p.soStatus === 'in').length;
+  const outG = people.filter(p => p.status === 'out').length, outS = people.filter(p => p.so && p.soStatus === 'out').length;
+  const wG = people.filter(p => isWait(p, 'guest')).length, wS = people.filter(p => p.so && isWait(p, 'so')).length;
+  const tiles = [
+    [`${people.filter(p => p.texted).length}`, ` / ${people.length}`, 'Texted', '#f5f5f7'],
+    [`${wG + wS}`, ` = ${wG} + ${wS} SO`, 'Waiting to hear', '#ffb340'],
+    [`${inG + inS}`, ` = ${inG} + ${inS} SO`, 'Headcount', '#30d158'],
+    [`${outG + outS}`, ` = ${outG} + ${outS} SO`, 'Out', '#ff453a'],
+  ];
+  const TW = (W - 2 * M - 24) / 2, TH = 146;
+  tiles.forEach(([big, small, label, color], i) => {
+    const tx = M + (i % 2) * (TW + 24), ty = y + Math.floor(i / 2) * (TH + 24);
+    rr(tx, ty, TW, TH, 28); x.fillStyle = '#111113'; x.fill();
+    x.strokeStyle = 'rgba(255,255,255,.12)'; x.lineWidth = 2; x.stroke();
+    x.fillStyle = color; x.font = `700 64px ${FONT}`; x.fillText(big, tx + 28, ty + 22);
+    const bw = x.measureText(big).width;
+    x.fillStyle = '#8e8e93'; x.font = `500 30px ${FONT}`; x.fillText(small, tx + 28 + bw + 6, ty + 52);
+    x.fillText(label, tx + 28, ty + 98);
+  });
+  y += 2 * TH + 24 + 64;
+
+  if (!sections.length) {
+    x.fillStyle = '#8e8e93'; x.font = `500 36px ${FONT}`; x.fillText('No one on the list yet.', M, y);
+  }
+  for (const [title, color, list, n] of sections) {
+    x.fillStyle = color; x.beginPath(); x.arc(M + 12, y + 22, 12, 0, Math.PI * 2); x.fill();
+    x.font = `700 40px ${FONT}`; x.fillStyle = '#f5f5f7'; x.fillText(title, M + 40, y);
+    const tw = x.measureText(title).width;
+    x.fillStyle = '#8e8e93'; x.font = `600 40px ${FONT}`; x.fillText(String(n), M + 40 + tw + 16, y);
+    y += 64;
+    x.strokeStyle = 'rgba(255,255,255,.12)'; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(M, y); x.lineTo(W - M, y); x.stroke();
+    y += 24;
+    // fill down the left column first, then the right
+    const half = Math.ceil(list.length / 2);
+    x.font = `500 38px ${FONT}`; x.fillStyle = '#e5e5ea';
+    list.forEach((t, i) => {
+      const col = i < half ? 0 : 1, row = i < half ? i : i - half;
+      x.fillText(fit(t, COLW), M + col * (COLW + GAP), y + row * ROW);
+    });
+    y += half * ROW + 24 + 8;
+  }
+  return c;
+}
+
+let shareBlob = null;
+function openShare() {
+  let url;
+  try {
+    url = drawShare().toDataURL('image/png');
+    shareBlob = dataUrlToBlob(url);
+  } catch (e) {
+    showError("Couldn't make the picture. Your list is fine. Do this: close the app fully, reopen it and tap the share button again; or take a screenshot of the list instead.");
+    return;
+  }
+  openSheet(`<h2>Share picture</h2>
+    <p class="hint">Copy, then paste it into your text. Or tap Share… and pick Messages.</p>
+    <div class="btns" style="margin-bottom:12px"><button class="btn" id="copyImg">Copy</button><button class="btn primary" id="shareImg">Share…</button></div>
+    <img class="shot" src="${url}" alt="RSVP summary picture">
+    <button class="link" id="cancel">Close</button>`);
+  $('cancel').onclick = closeSheet;
+  $('copyImg').onclick = copyImage;
+  $('shareImg').onclick = shareImage;
+}
+
+function dataUrlToBlob(url) {
+  const bin = atob(url.split(',')[1]), a = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+  return new Blob([a], { type: 'image/png' });
+}
+
+async function copyImage() {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': shareBlob })]);
+    toast('Picture copied — paste it into your text');
+  } catch (e) {
+    showError("Couldn't copy the picture. Nothing changed. Do this: press and hold the picture and tap Copy, or tap Share… and pick Messages.");
+  }
+}
+
+async function shareImage() {
+  const file = new File([shareBlob], 'bach-rsvp.png', { type: 'image/png' });
+  try {
+    if (!(navigator.canShare && navigator.canShare({ files: [file] }))) throw new Error('no share');
+    await navigator.share({ files: [file] });
+  } catch (e) {
+    if (e && e.name === 'AbortError') return; // closed the share sheet
+    showError("Sharing isn't available here. Nothing changed. Do this: press and hold the picture and tap Copy (or Save to Photos), then paste it into your text.");
   }
 }
 
