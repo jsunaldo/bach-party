@@ -41,12 +41,12 @@ h1 { font-size: 32px; font-weight: 700; letter-spacing: -.02em; margin: 0; }
 .shot { display: block; width: 100%; border-radius: 14px; border: 1px solid var(--line); margin-bottom: 12px;
   -webkit-touch-callout: default; }
 
-.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 16px; }
-.stat { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; }
-.stat b { display: block; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
-.stat span { color: var(--muted); font-size: 13px; }
-.stat small { color: var(--muted); font-size: 13px; font-weight: 400; }
-.stat.wide { grid-column: 1 / -1; }
+.stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 16px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 2px; text-align: center; min-width: 0; }
+.stat b { display: block; font-size: 24px; font-weight: 700; letter-spacing: -.02em; white-space: nowrap; }
+.stat span { color: var(--muted); font-size: 12px; }
+.stat small { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; }
+@media (max-width: 359px) { .stat b { font-size: 20px; } .stat small { font-size: 10px; } .stats { gap: 4px; } }
 
 .filters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
 .filters button {
@@ -221,12 +221,10 @@ function render() {
   const soOut = people.filter(p => p.soStatus === 'out').length;
   const dinG = people.filter(p => atDinner(p, 'guest')).length;
   const dinS = people.filter(p => atDinner(p, 'so')).length;
-  $('stats').innerHTML = `
-    <div class="stat"><b>${texted}<small> / ${total}</small></b><span>Texted</span></div>
-    <div class="stat"><b style="color:var(--wait)">${waitG + waitSo}<small> = ${waitG} + ${waitSo} SO</small></b><span>Waiting to hear</span></div>
-    <div class="stat"><b style="color:var(--in)">${inN + soIn}<small> = ${inN} + ${soIn} SO</small></b><span>Party headcount</span></div>
-    <div class="stat"><b style="color:var(--dinner)">${dinG + dinS}<small> = ${dinG} + ${dinS} SO</small></b><span>Dinner headcount</span></div>
-    <div class="stat wide"><b style="color:var(--out)">${outN + soOut}<small> = ${outN} + ${soOut} SO</small></b><span>Out</span></div>`;
+  const tile = (n, label, color, sub) =>
+    `<div class="stat"><b${color ? ` style="color:var(--${color})"` : ''}>${n}${sub ? `<small>${sub}</small>` : ''}</b><span>${label}</span></div>`;
+  $('stats').innerHTML = tile(texted, 'Texted', '', `/${total}`) + tile(waitG + waitSo, 'Waiting', 'wait')
+    + tile(inN + soIn, 'Party', 'in') + tile(dinG + dinS, 'Dinner', 'dinner') + tile(outN + soOut, 'Out', 'out');
 
   $('filters').innerHTML = FILTERS.map(([k, label]) =>
     `<button data-filter="${k}" class="${filter === k ? 'on' : ''}">${label}</button>`).join('');
@@ -447,7 +445,7 @@ function drawShare() {
 
   const W = 1080, M = 64, GAP = 40, COLW = (W - 2 * M - GAP) / 2, ROW = 60;
   const FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif';
-  let H = M + 90 + 40 + 3 * 146 + 2 * 24 + 64;
+  let H = M + 90 + 40 + 150 + 64;
   for (const [, , list] of sections) H += 96 + Math.ceil(list.length / 2) * ROW + 24;
   if (!sections.length) H += 120;
   H += M - 24;
@@ -472,24 +470,28 @@ function drawShare() {
   const dG = people.filter(p => atDinner(p, 'guest')).length, dS = people.filter(p => atDinner(p, 'so')).length;
   const wG = people.filter(p => isWait(p, 'guest')).length, wS = people.filter(p => p.so && isWait(p, 'so')).length;
   const tiles = [
-    [`${people.filter(p => p.texted).length}`, ` / ${people.length}`, 'Texted', '#f5f5f7'],
-    [`${wG + wS}`, ` = ${wG} + ${wS} SO`, 'Waiting to hear', '#ffb340'],
-    [`${inG + inS}`, ` = ${inG} + ${inS} SO`, 'Party headcount', '#30d158'],
-    [`${dG + dS}`, ` = ${dG} + ${dS} SO`, 'Dinner headcount', '#bf5af2'],
-    [`${outG + outS}`, ` = ${outG} + ${outS} SO`, 'Out', '#ff453a'],
+    [`${people.filter(p => p.texted).length}`, `/${people.length}`, 'Texted', '#f5f5f7'],
+    [`${wG + wS}`, '', 'Waiting', '#ffb340'],
+    [`${inG + inS}`, '', 'Party', '#30d158'],
+    [`${dG + dS}`, '', 'Dinner', '#bf5af2'],
+    [`${outG + outS}`, '', 'Out', '#ff453a'],
   ];
-  const TW = (W - 2 * M - 24) / 2, TH = 146;
+  const TG = 16, TW = (W - 2 * M - 4 * TG) / 5, TH = 150;
+  x.textAlign = 'center';
   tiles.forEach(([big, small, label, color], i) => {
-    const tx = M + (i % 2) * (TW + 24), ty = y + Math.floor(i / 2) * (TH + 24);
-    const wide = i === tiles.length - 1 && tiles.length % 2; // odd last tile spans the row
-    rr(tx, ty, wide ? W - 2 * M : TW, TH, 28); x.fillStyle = '#111113'; x.fill();
+    const tx = M + i * (TW + TG), cx = tx + TW / 2;
+    rr(tx, y, TW, TH, 26); x.fillStyle = '#111113'; x.fill();
     x.strokeStyle = 'rgba(255,255,255,.12)'; x.lineWidth = 2; x.stroke();
-    x.fillStyle = color; x.font = `700 64px ${FONT}`; x.fillText(big, tx + 28, ty + 22);
-    const bw = x.measureText(big).width;
-    x.fillStyle = '#8e8e93'; x.font = `500 30px ${FONT}`; x.fillText(small, tx + 28 + bw + 6, ty + 52);
-    x.fillText(label, tx + 28, ty + 98);
+    x.font = `700 60px ${FONT}`; const bw = x.measureText(big).width;
+    x.font = `500 30px ${FONT}`; const sw = small ? x.measureText(small).width : 0;
+    const left = cx - (bw + sw) / 2;
+    x.textAlign = 'left';
+    x.fillStyle = color; x.font = `700 60px ${FONT}`; x.fillText(big, left, y + 24);
+    if (small) { x.fillStyle = '#8e8e93'; x.font = `500 30px ${FONT}`; x.fillText(small, left + bw, y + 50); }
+    x.textAlign = 'center'; x.fillStyle = '#8e8e93'; x.font = `500 28px ${FONT}`; x.fillText(label, cx, y + 100);
   });
-  y += 3 * TH + 2 * 24 + 64;
+  x.textAlign = 'left';
+  y += TH + 64;
 
   if (!sections.length) {
     x.fillStyle = '#8e8e93'; x.font = `500 36px ${FONT}`; x.fillText('No one on the list yet.', M, y);
